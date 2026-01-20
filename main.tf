@@ -10,6 +10,11 @@ variable "labels" {
   default     = ""
   description = "Optional labels for the server in 'key1=value1,key2=value2' format"
 }
+variable "network_id" {
+  type        = string
+  default     = ""
+  description = "Optional network ID for the server"
+}
 variable "firewall_ids" {
   type        = string
   default     = ""
@@ -30,10 +35,6 @@ variable "poll_function" {
 locals {
   labels_map = length(var.labels) > 0 ? { for pair in split(",", var.labels) : split("=", pair)[0] => split("=", pair)[1] } : {}
   firewall_ids_list = length(var.firewall_ids) > 0 ? split(",", var.firewall_ids) : []
-}
-
-locals {
-  
 }
 
 terraform {
@@ -70,10 +71,21 @@ resource "hcloud_server" "node1" {
 
   labels = local.labels_map
   firewall_ids = length(local.firewall_ids_list) > 0 ? local.firewall_ids_list : null
+
+  dynamic "network" {
+    for_each = var.network_id != "" ? [var.network_id] : []
+    content {
+      network_id = network.value
+    }
+  }
 }
 
 output "private_ip" {
-  value = hcloud_server.node1.ipv4_address
+  value = (
+    length(hcloud_server.node1.network) > 0
+    ? hcloud_server.node1.network[0].ip
+    : hcloud_server.node1.ipv4_address
+  )
 }
 
 output "public_ip" {
